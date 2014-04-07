@@ -4,6 +4,7 @@ import java.awt.*;
 import java.applet.*; 
 // import an extra class for the MouseListener 
 import java.awt.event.*;
+import java.awt.geom.Line2D;
 import java.util.ArrayList;
 
 import finalproject.Point;
@@ -16,6 +17,7 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 	int xpos;
 	int ypos;
 	ArrayList<Point> points = new ArrayList<Point>();
+	ArrayList<Line> lines = new ArrayList<Line>();
 	Button button1, button2;
 
 	// The coordinates of the rectangle we will draw. 
@@ -52,6 +54,14 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 			Point tempPoint = points.get(i);
 			g.fillRect(tempPoint.getX(), tempPoint.getY(), 5, 5);
 		}
+		Graphics2D g2 = (Graphics2D) g;
+        g2.setStroke(new BasicStroke(2));
+        //g2.draw(new Line2D.Float(30, 20, 80, 90));
+		
+        Point testPoint1 = new Point (5, 5);
+        Point testPoint2 = new Point(100, 100);
+        Line testLine = new Line (testPoint1, testPoint2);
+        drawLine(testLine, g);
 
 		g.setColor(Color.red);
 
@@ -115,6 +125,10 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 			System.out.println("Button 2 was pressed");
 		
 	} 
+	
+	public void drawLine(Line l, Graphics g){
+		g.drawLine(l.p1.getX(), l.p1.getY(), l.p2.getX(), l.p2.getY());
+	}
 
 	/* So now you can use the MouseListener instead of Buttons. These methods will be ones that you will 
 often use. These methods are good for mouseClicks, but when you need mouseOvers like in Javascript 
