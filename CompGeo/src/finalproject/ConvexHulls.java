@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import finalproject.Point;
 
 // Tells the applet you will be using the MouseListener methods.
+//(aei+bfg+cdh)-(ceg+bdi+afh)
+
 
 public class ConvexHulls extends Applet implements MouseListener, ActionListener
 { 
@@ -44,6 +46,16 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 		add(button2);
 		button2.addActionListener(this);
 		addMouseListener(this); 
+	}
+	
+	public boolean orientation(Point p, Point q, Point r){
+		int result = q.getX()*r.getY() + p.getX()*q.getY() + p.getY()*r.getX() - (p.getY()*q.getX()+p.getX()*r.getY()+q.getY()*r.getX());
+		if (result==0){
+			//Don't fuck with general position
+		}
+		return result>0;
+		//True means that it turns left
+		//False means that it turns right
 	}
 
 	public void paint(Graphics g)  
