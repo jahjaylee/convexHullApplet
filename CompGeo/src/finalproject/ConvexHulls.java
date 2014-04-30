@@ -23,7 +23,7 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 	ArrayList<Point> currentHull = new ArrayList<Point>();
 	ArrayList<Point> points = new ArrayList<Point>();
 	ArrayList<Line> lines = new ArrayList<Line>();
-	Button button1, button2, button3, button4;
+	Button button1, button2, button3, button4, button5;
 
 	// The coordinates of the rectangle we will draw. 
 	// It is easier to specify this here so that we can later 
@@ -52,6 +52,10 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 		button4 = new Button("Merge Hull");
 		add(button4);
 		button4.addActionListener(this);
+		
+		button5 = new Button("Clear");
+		add(button5);
+		button5.addActionListener(this);
 
 		addMouseListener(this); 
 	}
@@ -146,6 +150,8 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 		//repaint(); 
 	}
 
+	
+	//Why is this method written with this weird if/else format? Whatever I just followed it - Jay
 	public void actionPerformed(ActionEvent e) {
 		if (e.getSource() == button1) {
 			System.out.println("Button 1 was pressed");
@@ -162,13 +168,26 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 					quickHull();
 				}
 				else{
-					System.out.println("Button 4 was pressed");
-					mergeHull();
+					if (e.getSource() == button4){
+						System.out.println("Button 4 was pressed");
+						mergeHull();
+					}
+					else{
+						System.out.println("Button 5 was pressed");
+						clear();
+					}
 				}
 			}
 		}
 
 	} 
+	
+	public void clear(){
+		currentHull.clear();
+		points.clear();
+		lines.clear();
+		repaint();
+	}
 
 	public void jarvisMarch(){
 		Point max = new Point(0,0);
