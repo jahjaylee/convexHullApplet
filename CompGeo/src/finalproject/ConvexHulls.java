@@ -48,7 +48,7 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 		button3 = new Button("Quick Hull");
 		add(button3);
 		button3.addActionListener(this);
-		
+
 		button4 = new Button("Merge Hull");
 		add(button4);
 		button4.addActionListener(this);
@@ -56,13 +56,18 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 		addMouseListener(this); 
 	}
 
-	public boolean orientation(Point p, Point q, Point r){
+	public int orientation(Point p, Point q, Point r){
 		//IF SOMETHING IS REALLY FUCKED UP IT IS PROBABLY HERE
 		int result = q.getX()*r.getY() + p.getX()*q.getY() + p.getY()*r.getX() - (p.getY()*q.getX()+p.getX()*r.getY()+q.getY()*r.getX());
+		System.out.println("Orientation of" + p + ", " + q + ", " + r + ": " + result);
 		if (result==0){
 			//Don't fuck with general position
+			System.out.println("GENERAL POSITION VIOLATION!!!!!!!!!!");
 		}
-		return result<0;
+		return result;
+		//return result<0;
+		//negative means left turn
+		//positive means right turn
 		//True means that it turns left
 		//False means that it turns right
 	}
@@ -74,7 +79,7 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 		for (int i = 0; i < points.size(); i++){
 			g.setColor(Color.black);
 			Point tempPoint = points.get(i);
-			g.fillRect(tempPoint.getX(), tempPoint.getY(), 5, 5);
+			g.fillRect(tempPoint.getX()-2, tempPoint.getY()-2, 5, 5);
 			g.setColor(Color.red);
 			g.drawString("(" + tempPoint.getX() + ", " + tempPoint.getY() + ")", tempPoint.getX(), tempPoint.getY());
 		}
@@ -113,10 +118,17 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 	// This method will be called when the mouse has been clicked. 
 	public void mouseClicked (MouseEvent me) {
 
-		// Save the coordinates of the click lke this. 
+		// Save the coordinates of the click like this. 
 		xpos = me.getX(); 
 		ypos = me.getY();
-		points.add(new Point(xpos, ypos));
+		boolean alreadyUsed = false;
+		for (int i = 0; i < points.size(); i++){
+			if (points.get(i).getX() == xpos && points.get(i).getY() == ypos){
+				alreadyUsed = true;
+			}
+		}
+		if (!alreadyUsed)
+			points.add(new Point(xpos, ypos));
 
 		//show the results of the click 
 		repaint();
@@ -171,6 +183,12 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 	} 
 
 	public void jarvisMarch(){
+		lines.clear();
+		currentHull.clear();
+		for (Point i : points){
+			i.usedYet = false;
+		}
+		
 		Point max = new Point(0,0);
 		Point next = new Point(0,0);
 		int count = 0;
@@ -214,50 +232,92 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 	}
 
 	public void grahamScan(){
-
+		lines.clear();
+		ArrayList<Point> pointsList = new ArrayList<Point>();
+		pointsList.addAll(points);
 		ArrayList<Point> upper = new ArrayList<Point>();
 		ArrayList<Point> lower = new ArrayList<Point>();
-		Collections.sort(points, new PointXCompare());
-		Point left = points.get(0);
-		Point right = points.get(points.size()-1);
+		Collections.sort(pointsList, new PointXCompare());
+		Point left = pointsList.get(0);
+		Point right = pointsList.get(pointsList.size()-1);
 		//lines.add(new Line(points.get(0),points.get(points.size()-1)));
 
 
 		upper.add(left);
 		lower.add(left);
-		for(Point i : points){
-			if(orientation(left,right,i)){
-				upper.add(i);
-			}
-			else{
-				lower.add(i);
+		for(Point i : pointsList){
+			if (!((left.getX() == i.getX() && left.getY() == i.getY()) || (right.getX() == i.getX() && right.getY() == i.getY()))){
+				if(orientation(left,right,i) < 0){
+					System.out.println("add to upper");
+					upper.add(i);
+				}
+				else {
+					if (orientation(left,right,i) > 0){
+						System.out.println("add to lower");
+						lower.add(i);
+					}
+				}
 			}
 		}
 		upper.add(right);
 		lower.add(right);
 
+		System.out.println("hello");
 		//		for(Point i : upper){
 		//			lines.add(new Line(upper.get(0),i));
 		//		}
 
-		for(int i = 0; i < upper.size()-2; i++){
-			if(orientation(upper.get(i),upper.get(i+1),upper.get(i+2))){
-				upper.remove(i+1);
-				i--;
+		//upper hull
+//		for(int i = 2; i < upper.size(); i++){
+//			if(orientation(upper.get(i), upper.get(i-1), upper.get(i-2)) >= 0){
+//				upper.remove(i-1);
+//				i--;
+//			}
+//		}
+		
+		TwoPeekStack upperStack = new TwoPeekStack();
+		upperStack.push(upper.get(0));
+		upperStack.push(upper.get(1));
+		for (int i = 2; i < upper.size(); i++){
+			while(upperStack.size() >= 2 && orientation(upper.get(i), upperStack.firstPeek(), upperStack.secondPeek()) >= 0){
+				upperStack.pop();
 			}
+			upperStack.push(upper.get(i));
 		}
-
+		
+		upper.clear();
+		while (upperStack.size() > 0){
+			upper.add(upperStack.pop());
+		}
+		
 		for(int i = 0; i < upper.size()-1; i++){
 			lines.add(new Line(upper.get(i),upper.get(i+1)));
 		}
 
-		for(int i = 0; i < lower.size()-2; i++){
-			if(!orientation(lower.get(i),lower.get(i+1),lower.get(i+2))){
-				lower.remove(i+1);
-				i--;
+//		for(int i = 2; i < lower.size(); i++){
+//			if(orientation(lower.get(i),lower.get(i-1),lower.get(i-2)) <= 0){
+//				lower.remove(i-1);
+//				i--;
+//			}
+//		}
+		
+		
+		
+		TwoPeekStack lowerStack = new TwoPeekStack();
+		lowerStack.push(lower.get(0));
+		lowerStack.push(lower.get(1));
+		for (int i = 2; i < lower.size(); i++){
+			while(lowerStack.size() >= 2 && orientation(lower.get(i), lowerStack.firstPeek(), lowerStack.secondPeek()) <= 0){
+				lowerStack.pop();
 			}
+			lowerStack.push(lower.get(i));
 		}
-
+		
+		lower.clear();
+		while (lowerStack.size() > 0){
+			lower.add(lowerStack.pop());
+		}
+		
 		for(int i = 0; i < lower.size()-1; i++){
 			lines.add(new Line(lower.get(i),lower.get(i+1)));
 		}
@@ -266,6 +326,7 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 	}
 
 	public void quickHull(){
+		lines.clear();
 		ArrayList<Point> topLeft = new ArrayList<Point>();
 		ArrayList<Point> topRight = new ArrayList<Point>();
 		ArrayList<Point> bottomLeft = new ArrayList<Point>();
@@ -345,7 +406,7 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 		topRightTriangle.add(new Point(listByX.get(listByX.size() - 1).getX(), listByY.get(0).getY()));
 		topRightTriangle.add(listByY.get(0));
 		topRight = PointsInRegion(temp, topRightTriangle);
-		
+
 
 		System.out.println("Top left:");
 		for (int i = 0; i < topLeft.size(); i++){
@@ -366,7 +427,7 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 		for (int i = 0; i < bottomRight.size(); i++){
 			System.out.println("Point " + i + ": " + bottomRight.get(i));
 		}
-		
+
 		ArrayList<Point> topLeftHull = new ArrayList<Point>();
 		ArrayList<Point> bottomLeftHull = new ArrayList<Point>();
 		ArrayList<Point> bottomRightHull = new ArrayList<Point>();
@@ -384,7 +445,7 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 
 
 		ArrayList<Point> convexHull = new ArrayList<Point>();
-		
+
 		convexHull.add(listByY.get(0));
 		convexHull.addAll(topLeftHull);
 
@@ -396,7 +457,7 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 
 		convexHull.add(listByX.get(listByX.size() - 1));
 		convexHull.addAll(topRightHull);
-		
+
 		//remove duplicates from convex hull (can happen if the top-most point is also the right-most point, etc)
 		for (int i = 0; i < convexHull.size() - 1; i++){
 			if (convexHull.get(i).getX() == convexHull.get(i+1).getX() && convexHull.get(i).getY() == convexHull.get(i+1).getY()){
@@ -407,18 +468,19 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 				&& convexHull.get(convexHull.size() - 1).getY() == convexHull.get(0).getY()){
 			convexHull.remove(convexHull.size() - 1);
 		}
-		
+
 		for (int i = 0; i < convexHull.size() - 1; i++){
 			lines.add(new Line(convexHull.get(i), convexHull.get(i+1)));
 		}
 		lines.add(new Line(convexHull.get(convexHull.size()-1), convexHull.get(0)));
-		
-		
-		
+
+
+
 		System.out.println("ConvexHull Points:");
 		for (int i = 0; i < convexHull.size(); i++){
 			System.out.println("Point " + i+ ": " + convexHull.get(i));
 		}
+
 
 		repaint();
 
@@ -469,7 +531,7 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 
 		for (int i = 0; i < tempPointsList.size(); i++){
 			if (!(tempPointsList.get(i).getX() == c.getX() && tempPointsList.get(i).getY() == c.getY())){
-				if (orientation(d, c, tempPointsList.get(i))){
+				if (orientation(d, c, tempPointsList.get(i)) < 0){
 					leftList.add(tempPointsList.get(i));
 				}
 				else{
@@ -490,6 +552,7 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 	}
 
 	public void mergeHull(){
+		lines.clear();
 		ArrayList<Point> listByX = new ArrayList<Point>();
 		listByX.addAll(points);
 		Collections.sort(listByX, new PointXCompare());
@@ -498,22 +561,31 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 		for (int i = 0; i < convexHull.size(); i++){
 			System.out.println("Point " + i+ ": " + convexHull.get(i));
 		}
+
+		for (int i = 0; i < convexHull.size() - 1; i++){
+			lines.add(new Line(convexHull.get(i), convexHull.get(i+1)));
+		}
+		lines.add(new Line(convexHull.get(convexHull.size()-1), convexHull.get(0)));
+
+		repaint();
 	}
-	
+
 	public ArrayList<Point> mergeHelper(ArrayList<Point> pointsList){
+		System.out.println("Merge hull helper running!");
 		ArrayList<Point> returnList = new ArrayList<Point>();
 		System.out.println("Entire List:");
 		for (int i = 0; i < pointsList.size(); i++){
 			System.out.println("Point: "+ pointsList.get(i));
 		}
-		
+
 		//compute by brute force if size <= 3
 		if (pointsList.size() == 3){
+			System.out.println("Base case");
 			for (int i = 0; i < pointsList.size(); i++){
 				for (int j = 0; j < pointsList.size(); j++){
 					for (int k = 0; k < pointsList.size(); k++){
 						if (!(i == j || j == k || k == i)){
-							if (orientation(pointsList.get(i), pointsList.get(j), pointsList.get(k))){
+							if (orientation(pointsList.get(i), pointsList.get(j), pointsList.get(k)) < 0){
 								returnList.add(pointsList.get(i));
 								returnList.add(pointsList.get(j));
 								returnList.add(pointsList.get(k));
@@ -525,38 +597,42 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 			}
 		}
 		if (pointsList.size() <= 2){
+			System.out.println("Base case");
 			for (int i = 0; i < pointsList.size(); i++){
 				returnList.add(pointsList.get(i));
 			}
 			return returnList;
 		}
-		
+
 		ArrayList<Point> leftList = new ArrayList<Point>();
 		ArrayList<Point> rightList = new ArrayList<Point>();
-		
+		//split points list into leftList and rightList
 		for (int i = 0; i < pointsList.size()/2; i++){
 			leftList.add(pointsList.get(i));
 		}
 		for (int i = pointsList.size()/2; i < pointsList.size(); i++){
 			rightList.add(pointsList.get(i));
 		}
+
+		//just printing the left and right list
 		System.out.println("Left List:");
 		for (int i = 0; i < leftList.size(); i ++){
-			System.out.println("Point: " + leftList.get(i));
+			System.out.println("Point " + i + ": " + leftList.get(i));
 		}
 		System.out.println("Right List:");
 		for (int i = 0; i < rightList.size(); i++){
-			System.out.println("Point: " + rightList.get(i));
+			System.out.println("Point " + i + ": " + rightList.get(i));
 		}
-		
+
+		//recursively compute convex hull for leftList and rightList
 		ArrayList<Point> leftHull = mergeHelper(leftList);
 		ArrayList<Point> rightHull = mergeHelper(rightList);
-		
+
 		int rightMostLeftHullIndex = -1;
 		int rightMostLeftHullxCoord = -1;
 		int leftMostRightHullIndex = 0;
 		int leftMostRightHullxCoord = rightHull.get(0).getX();
-		
+
 		for (int i = 0; i < leftHull.size(); i++){
 			if (leftHull.get(i).getX() > rightMostLeftHullxCoord){
 				rightMostLeftHullIndex = i;
@@ -569,57 +645,267 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 				leftMostRightHullxCoord = rightHull.get(i).getX();
 			}
 		}
-		
+
 		int a = rightMostLeftHullIndex;
 		int b = leftMostRightHullIndex;
 		Point upperTangentPt1;
 		Point upperTangentPt2;
-		
-		//upper tangent
-		boolean firstCheck = orientation(leftHull.get((a-1)%leftHull.size()), leftHull.get(a), rightHull.get(b));
-		boolean secondCheck = orientation(leftHull.get((a+1)%leftHull.size()), leftHull.get(a), rightHull.get(b));
-		boolean thirdCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get((b-1) %rightHull.size() ));
-		boolean fourthCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get((b+1) %rightHull.size() ));
-		
-		while (!(!firstCheck && !secondCheck && !thirdCheck && !fourthCheck)){
-			while (!(!firstCheck && !secondCheck)){
-				a = (a+1)%leftHull.size();
-				firstCheck = orientation(leftHull.get((a-1)%leftHull.size()), leftHull.get(a), rightHull.get(b));
-				secondCheck = orientation(leftHull.get((a+1)%leftHull.size()), leftHull.get(a), rightHull.get(b));
+		Point lowerTangentPt1;
+		Point lowerTangentPt2;
+
+		//negative = left turn
+		//positive = right turn
+
+		//compute upper tangent
+		boolean firstCheck = orientation(leftHull.get(positiveMod((a-1),leftHull.size())), leftHull.get(a), rightHull.get(b)) > 0;
+		boolean secondCheck = orientation(leftHull.get(positiveMod((a+1),leftHull.size())), leftHull.get(a), rightHull.get(b)) > 0;
+		boolean thirdCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get(positiveMod((b-1), rightHull.size()) )) > 0;
+		boolean fourthCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get(positiveMod((b+1), rightHull.size() ))) > 0;
+
+		System.out.println("Running upper tangent checks");
+
+		while (!(firstCheck && secondCheck && thirdCheck && fourthCheck)){
+			System.out.println("loop 1");
+			while (!(firstCheck && secondCheck)){
+				System.out.println("loop 1a");
+				a = positiveMod((a+1), leftHull.size());
+				System.out.println("a value: " + a);
+
+				//printing out the left hull and right hull for debugging
+				System.out.println("LeftHull: ");
+				for (int i = 0; i < leftHull.size(); i++){
+					System.out.println("Point " + i + ": " + leftHull.get(i));
+				}
+				System.out.println("RightHull: ");
+				for (int i = 0; i < rightHull.size(); i++){
+					System.out.println("Point " + i + ": " + rightHull.get(i));
+				}
+
+				firstCheck = orientation(leftHull.get(positiveMod((a-1),leftHull.size())), leftHull.get(a), rightHull.get(b)) > 0;
+				secondCheck = orientation(leftHull.get(positiveMod((a+1),leftHull.size())), leftHull.get(a), rightHull.get(b)) > 0;
 			}
-			
-			while (!(!thirdCheck && !fourthCheck)){
-				b = (b-1)%rightHull.size();
-				thirdCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get((b-1) %rightHull.size() ));
-				fourthCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get((b+1) %rightHull.size() ));
+
+			while (!(thirdCheck && fourthCheck)){
+				System.out.println("loop 1b");
+				b = positiveMod((b-1), rightHull.size());
+				System.out.println("b value: " + b);
+
+				//printing out the left hull and right hull for debugging
+				System.out.println("LeftHull: ");
+				for (int i = 0; i < leftHull.size(); i++){
+					System.out.println("Point " + i + ": " + leftHull.get(i));
+				}
+				System.out.println("RightHull: ");
+				for (int i = 0; i < rightHull.size(); i++){
+					System.out.println("Point " + i + ": " + rightHull.get(i));
+				}
+
+				thirdCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get(positiveMod((b-1), rightHull.size()) )) > 0;
+				fourthCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get(positiveMod((b+1), rightHull.size() ))) > 0;
 			}
-			
-			firstCheck = orientation(leftHull.get((a-1)%leftHull.size()), leftHull.get(a), rightHull.get(b));
-			secondCheck = orientation(leftHull.get((a+1)%leftHull.size()), leftHull.get(a), rightHull.get(b));
-			thirdCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get((b-1) %rightHull.size() ));
-			fourthCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get((b+1) %rightHull.size() ));
+
+			firstCheck = orientation(leftHull.get(positiveMod((a-1),leftHull.size())), leftHull.get(a), rightHull.get(b)) > 0;
+			secondCheck = orientation(leftHull.get(positiveMod((a+1),leftHull.size())), leftHull.get(a), rightHull.get(b)) > 0;
+			thirdCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get(positiveMod((b-1), rightHull.size()) )) > 0;
+			fourthCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get(positiveMod((b+1), rightHull.size() ))) > 0;
 		}
-		
+
 		upperTangentPt1 = leftHull.get(a);
 		upperTangentPt2 = rightHull.get(b);
-		
-		//lower tangent
+
+
+		System.out.println("Running lower tangent checks");
+		//compute lower tangent
 		a = rightMostLeftHullIndex;
 		b = leftMostRightHullIndex;
-		
-		firstCheck = orientation(leftHull.get((a-1)%leftHull.size()), leftHull.get(a), rightHull.get(b));
-		secondCheck = orientation(leftHull.get((a+1)%leftHull.size()), leftHull.get(a), rightHull.get(b));
-		thirdCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get((b-1) %rightHull.size() ));
-		fourthCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get((b+1) %rightHull.size() ));
-		
-		
-		
-		
-		
-		return null;
+
+		firstCheck = orientation(leftHull.get(positiveMod((a-1),leftHull.size())), leftHull.get(a), rightHull.get(b)) < 0;
+		secondCheck = orientation(leftHull.get(positiveMod((a+1),leftHull.size())), leftHull.get(a),rightHull.get(b)) < 0;
+		thirdCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get(positiveMod((b-1), rightHull.size()))) < 0;
+		fourthCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get(positiveMod((b+1), rightHull.size() ))) < 0;
+
+		while (!(firstCheck && secondCheck && thirdCheck && fourthCheck)){
+			System.out.println("loop 2");
+			while (!(firstCheck && secondCheck)){
+				System.out.println("loop 2a");
+				a = positiveMod((a-1), leftHull.size());
+				System.out.println("a value: " + a);
+
+				//printing out the left hull and right hull for debugging
+				System.out.println("LeftHull: ");
+				for (int i = 0; i < leftHull.size(); i++){
+					System.out.println("Point " + i + ": " + leftHull.get(i));
+				}
+				System.out.println("RightHull: ");
+				for (int i = 0; i < rightHull.size(); i++){
+					System.out.println("Point " + i + ": " + rightHull.get(i));
+				}
+
+				firstCheck = orientation(leftHull.get(positiveMod((a-1),leftHull.size())), leftHull.get(a), rightHull.get(b)) < 0;
+				secondCheck = orientation(leftHull.get(positiveMod((a+1),leftHull.size())), leftHull.get(a),rightHull.get(b)) < 0;
+			}
+
+			while(!(thirdCheck && fourthCheck)){
+				System.out.println("loop 2b");
+				b = positiveMod((b+1), rightHull.size());
+				System.out.println("b value: " + b);
+
+				//printing out the left hull and right hull for debugging
+				System.out.println("LeftHull: ");
+				for (int i = 0; i < leftHull.size(); i++){
+					System.out.println("Point " + i + ": " + leftHull.get(i));
+				}
+				System.out.println("RightHull: ");
+				for (int i = 0; i < rightHull.size(); i++){
+					System.out.println("Point " + i + ": " + rightHull.get(i));
+				}
+
+				thirdCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get(positiveMod((b-1), rightHull.size()))) < 0;
+				fourthCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get(positiveMod((b+1), rightHull.size() ))) < 0;
+
+			}
+
+			firstCheck = orientation(leftHull.get(positiveMod((a-1),leftHull.size())), leftHull.get(a), rightHull.get(b)) < 0;
+			secondCheck = orientation(leftHull.get(positiveMod((a+1),leftHull.size())), leftHull.get(a),rightHull.get(b)) < 0;
+			thirdCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get(positiveMod((b-1), rightHull.size()))) < 0;
+			fourthCheck = orientation(leftHull.get(a), rightHull.get(b), rightHull.get(positiveMod((b+1), rightHull.size() ))) < 0;
+		}
+
+		lowerTangentPt1 = leftHull.get(a);
+		lowerTangentPt2 = rightHull.get(b);
+
+		boolean firstTangentFound = false;
+		int index = 0;
+
+		System.out.println("Removing points between tangents on left hull");
+		//remove points between the two tangent points on left hull
+		while(true){
+			System.out.println("loop 3");
+			if (!firstTangentFound){
+				if (leftHull.get(index).getX() == lowerTangentPt1.getX() && leftHull.get(index).getY() == lowerTangentPt1.getY()){
+					firstTangentFound = true;
+				}
+				index++;
+				index = positiveMod(index, leftHull.size());
+			}
+			else{//first tangent point already seen
+				if (leftHull.get(index).getX() == upperTangentPt1.getX() && leftHull.get(index).getY() == upperTangentPt1.getY()){
+					break;
+				}
+				else{
+					leftHull.remove(index);
+					index = positiveMod(index, leftHull.size());
+				}
+			}
+		}
+
+
+		System.out.println("Removing points between tangents on right hull");
+		//remove points between two tangent points on right hull
+		firstTangentFound = false;
+		index = 0;
+		while(true){
+			System.out.println("loop 4");
+			if (!firstTangentFound){
+				if (rightHull.get(index).getX() == upperTangentPt2.getX() && rightHull.get(index).getY() == upperTangentPt2.getY()){
+					firstTangentFound = true;
+				}
+				index++;
+				index = positiveMod(index, rightHull.size());
+			}
+			else{//first tangent point already seen
+				if (rightHull.get(index).getX() == lowerTangentPt2.getX() && rightHull.get(index).getY() == lowerTangentPt2.getY()){
+					break;
+				}
+				else{
+					rightHull.remove(index);
+					index = positiveMod(index, rightHull.size());
+				}
+			}
+		}
+
+
+		System.out.println("Reordering left hull");
+		//reorder leftHull so that upper tangent point is first
+		index = 0;
+		firstTangentFound = false;
+		ArrayList<Point> orderedLeftHull = new ArrayList<Point>();
+		while (true){
+			System.out.println("loop 5");
+			if (!firstTangentFound){
+				if (leftHull.get(index).getX() == upperTangentPt1.getX() && leftHull.get(index).getY() == upperTangentPt1.getY()){
+					firstTangentFound = true;
+					orderedLeftHull.add(leftHull.get(index));
+				}
+				index++;
+				index = positiveMod(index, leftHull.size());
+			}
+			else{
+				if (leftHull.get(index).getX() == lowerTangentPt1.getX() && leftHull.get(index).getY() == lowerTangentPt1.getY()){
+					orderedLeftHull.add(leftHull.get(index));
+					break;
+				}
+				else{
+					orderedLeftHull.add(leftHull.get(index));
+					index++;
+					index = positiveMod(index, leftHull.size());
+				}
+			}
+		}
+
+		System.out.println("Reordering right hull");
+		//reorder rightHull so that lower tangent point is first
+		index = 0;
+		firstTangentFound = false;
+		ArrayList<Point> orderedRightHull = new ArrayList<Point>();
+		while(true){
+			System.out.println("loop 6");
+			if (!firstTangentFound){
+				if (rightHull.get(index).getX() == lowerTangentPt2.getX() && rightHull.get(index).getY() == lowerTangentPt2.getY()){
+					firstTangentFound = true;
+					orderedRightHull.add(rightHull.get(index));
+				}
+				index++;
+				index = positiveMod(index, rightHull.size());
+			}
+			else{
+				if (rightHull.get(index).getX() == upperTangentPt2.getX() && rightHull.get(index).getY() == upperTangentPt2.getY()){
+					orderedRightHull.add(rightHull.get(index));
+					break;
+				}
+				else{
+					orderedRightHull.add(rightHull.get(index));
+					index++;
+					index = positiveMod(index, rightHull.size());
+				}
+			}
+		}
+
+		System.out.println("Combining");
+		//combine left hull and right hull
+		returnList.addAll(orderedLeftHull);
+		returnList.addAll(orderedRightHull);
+		System.out.println("ReturnList:");
+		for (int i = 0; i < returnList.size(); i++){
+			System.out.println("Point " + i + ": " + returnList.get(i));
+		}
+
+		System.out.println("Removing duplicates");
+		//remove duplicates
+		for (int i = 0; i < returnList.size() - 1; i++){
+			if (returnList.get(i).getX() == returnList.get(i+1).getX() && returnList.get(i).getY() == returnList.get(i+1).getY()){
+				returnList.remove(i);
+			}
+		}
+		if (returnList.get(returnList.size() - 1).getX() == returnList.get(0).getX() 
+				&& returnList.get(returnList.size() - 1).getY() == returnList.get(0).getY()){
+			returnList.remove(returnList.size() - 1);
+		}
+
+		return returnList;
 	}
-	
-	
+
+
 	public class PointXCompare
 	implements Comparator<Point> {
 
@@ -634,6 +920,11 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 				return 0;
 			}
 		}
+	}
+
+	public int positiveMod(int a, int b){
+		//source: https://stackoverflow.com/questions/4412179/best-way-to-make-javas-modulus-behave-like-it-should-with-negative-numbers
+		return (a%b + b)%b;
 	}
 
 	public class PointYCompare
@@ -659,16 +950,16 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 			pointsNotInRegion.addAll(points);
 			return pointsNotInRegion;
 		}
-		
+
 		//checks if the points are in the region with orientation test
 		for (int i = 0; i < points.size(); i++){
 			boolean inRegion = true;
 			for (int j = 0; j < region.size() - 1; j++){
-				if (!orientation(region.get(j), region.get(j+1), points.get(i))){
+				if (!(orientation(region.get(j), region.get(j+1), points.get(i)) < 0)){
 					inRegion = false;
 				}
 			}
-			if (!orientation(region.get(region.size() - 1), region.get(0), points.get(i))){
+			if (!(orientation(region.get(region.size() - 1), region.get(0), points.get(i)) < 0)){
 				inRegion = false;
 			}
 			if (!inRegion){
@@ -685,15 +976,15 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 		if (region.size() == 0){
 			return pointsInRegion;
 		}
-		
+
 		for (int i = 0; i < points.size(); i++){
 			boolean inRegion = true;
 			for (int j = 0; j < region.size() - 1; j++){//add a check for null pointers
-				if (!orientation(region.get(j), region.get(j+1), points.get(i))){
+				if (!(orientation(region.get(j), region.get(j+1), points.get(i)) < 0)){
 					inRegion = false;
 				}
 			}
-			if (!orientation(region.get(region.size() - 1), region.get(0), points.get(i))){
+			if (!(orientation(region.get(region.size() - 1), region.get(0), points.get(i)) < 0)){
 				inRegion = false;
 			}
 			if (inRegion){
