@@ -8,7 +8,7 @@ import java.awt.geom.Line2D;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-
+import javax.swing.Timer;
 import finalproject.Point;
 
 // Tells the applet you will be using the MouseListener methods.
@@ -20,10 +20,14 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 	// The X-coordinate and Y-coordinate of the last click. 
 	int xpos;
 	int ypos;
+	int direc;
 	ArrayList<Point> currentHull = new ArrayList<Point>();
 	ArrayList<Point> points = new ArrayList<Point>();
 	ArrayList<Line> lines = new ArrayList<Line>();
 	Button button1, button2, button3, button4, button5;
+	Timer timer; 
+	boolean b; 
+	
 
 	// The coordinates of the rectangle we will draw. 
 	// It is easier to specify this here so that we can later 
@@ -58,6 +62,31 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 		button5.addActionListener(this);
 
 		addMouseListener(this); 
+		timer = new Timer(10, new ActionListener() {
+		    @Override
+		    public void actionPerformed(ActionEvent ae) {
+		    	System.out.println("Hello");
+		        moveLine();
+		        repaint();
+		    }
+		});
+	}
+	
+	public void moveLine(){
+		if(!lines.isEmpty()){
+			if(lines.get(0).p2.getX()==0){
+				direc = 1;
+			}
+			else if(lines.get(0).p2.getX()==800){
+				direc = -1;
+			}
+			Line l = new Line(lines.get(0).p1,new Point(lines.get(0).p2.getX()+direc,lines.get(0).p2.getY()));
+			lines.clear();
+			lines.add(l);
+		}
+		else{
+			lines.add(new Line(new Point(400,400), new Point(0,0)));
+		}
 	}
 
 	public int orientation(Point p, Point q, Point r){
@@ -167,7 +196,12 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 	public void actionPerformed(ActionEvent e) {
 		if (e.getSource() == button1) {
 			System.out.println("Button 1 was pressed");
-			jarvisMarch();
+			//jarvisMarch();
+	        if (timer.isRunning()) {
+	            timer.stop();
+	          } else {
+	            timer.start();
+	          }
 		}
 		else{
 			if (e.getSource() == button2){
@@ -1036,6 +1070,7 @@ public class ConvexHulls extends Applet implements MouseListener, ActionListener
 		System.out.println("Point: " + P + "'s distance is " + returnValue);
 		return returnValue;
 	}
+
 
 
 	/* So now you can use the MouseListener instead of Buttons. These methods will be ones that you will 
